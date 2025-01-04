@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_local_notifications/flutter_local_notifications.dart'; // Importez flutter_local_notifications
 import 'package:provider/provider.dart';
+import 'package:speech_to_text/speech_to_text.dart' as stt;
 import 'add_task_screen.dart';
+import 'edit_task_screen.dart';
 import '../models/task.dart';
 import '../helpers/database_helper.dart';
 import 'package:mapremiereapp/providers/theme_provider.dart';
@@ -15,71 +16,61 @@ class HomeScreen extends StatefulWidget {
 
 class _HomeScreenState extends State<HomeScreen> {
   List<Task> tasks = [];
-  FlutterLocalNotificationsPlugin flutterLocalNotificationsPlugin =
-      FlutterLocalNotificationsPlugin();
   bool showCompletedTasks = true;
   String searchQuery = '';
   String selectedPriority = 'Tous';
   String selectedStatus = 'Tous';
+  final stt.SpeechToText _speech = stt.SpeechToText();
+  bool _isListening = false;
 
   @override
   void initState() {
     super.initState();
     _loadTasks();
-    _initializeNotifications();
+    _initializeSpeech();
   }
 
-  // Initialisation des notifications
-  void _initializeNotifications() async {
-    const android = AndroidInitializationSettings(
-        'app_icon'); // Assurez-vous d'avoir un icône dans le dossier drawable
-    const settings = InitializationSettings(android: android);
-    await flutterLocalNotificationsPlugin.initialize(settings);
+  Future<void> _initializeSpeech() async {
+    bool available = await _speech.initialize(
+      onStatus: (status) => print('Speech status: $status'),
+      onError: (error) => print('Speech error: $error'),
+    );
+    if (!available) {
+      print("Le Speech-to-Text n'est pas disponible sur cet appareil");
+    }
   }
 
-  // Charger les tâches depuis la base de données
+  Future<void> _listenForTask() async {
+    if (!_isListening) {
+      bool available = await _speech.initialize();
+      if (available) {
+        setState(() => _isListening = true);
+        _speech.listen(
+          onResult: (result) {
+            if (result.finalResult) {
+              setState(() => _isListening = false);
+              _addTask(
+                result.recognizedWords,
+                null,
+                'Moyenne',
+                null,
+              );
+            }
+          },
+          localeId: 'fr_FR',
+        );
+      }
+    } else {
+      setState(() => _isListening = false);
+      _speech.stop();
+    }
+  }
+
   void _loadTasks() async {
     List<Task> loadedTasks = await DatabaseHelper.instance.getAllTasks();
     setState(() {
       tasks = loadedTasks;
     });
-    _sendReminders();
-  }
-
-  void _sendReminders() async {
-    for (var task in tasks) {
-      if (task.deadline != null) {
-        final deadline = task.deadline!;
-        final currentTime = DateTime.now();
-
-        // Si la tâche est proche de sa date limite (par exemple dans les 24 heures), envoyer une notification
-        if (deadline.isAfter(currentTime) &&
-            deadline.isBefore(currentTime.add(const Duration(hours: 24)))) {
-          _scheduleNotification(task, deadline);
-        }
-      }
-    }
-  }
-
-  // Planifier une notification pour une tâche
-  void _scheduleNotification(Task task, DateTime deadline) async {
-    var scheduledNotificationDateTime = deadline.subtract(
-        const Duration(hours: 1)); // Notification 1 heure avant la date limite
-    var androidDetails = const AndroidNotificationDetails(
-      'task_channel_id',
-      'task_channel_name',
-      importance: Importance.high,
-      priority: Priority.high,
-    );
-    var platformDetails = NotificationDetails(android: androidDetails);
-
-    await flutterLocalNotificationsPlugin.schedule(
-      task.id, // Utilisez l'ID de la tâche pour l'identifier
-      'Rappel de tâche',
-      'La tâche "${task.title}" arrive à échéance dans 1 heure.',
-      scheduledNotificationDateTime,
-      platformDetails,
-    );
   }
 
   void _addTask(String title, String? description, String priority,
@@ -103,26 +94,128 @@ class _HomeScreenState extends State<HomeScreen> {
     _loadTasks();
   }
 
+  void _editTask(Task task) async {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => EditTaskScreen(
+          task: task,
+          onEditTask: (title, description, priority, deadline) async {
+            final updatedTask = Task(
+              id: task.id,
+              title: title,
+              description: description,
+              priority: priority,
+              deadline: deadline,
+              isComplete: task.isComplete,
+            );
+            await DatabaseHelper.instance.update(updatedTask);
+            _loadTasks();
+          },
+        ),
+      ),
+    );
+  }
+
   void _deleteTask(int id) async {
     await DatabaseHelper.instance.delete(id);
     _loadTasks();
   }
 
   void _filterTasks() {
-    List<Task> filteredTasks = tasks.where((task) {
-      bool matchesSearchQuery =
-          task.title.toLowerCase().contains(searchQuery.toLowerCase());
-      bool matchesPriority =
-          selectedPriority == 'Tous' || task.priority == selectedPriority;
-      bool matchesStatus = selectedStatus == 'Tous' ||
-          (selectedStatus == 'Complète' && task.isComplete) ||
-          (selectedStatus == 'Incomplète' && !task.isComplete);
-      return matchesSearchQuery && matchesPriority && matchesStatus;
-    }).toList();
-
     setState(() {
-      tasks = filteredTasks;
+      tasks = tasks.where((task) {
+        bool matchesSearchQuery = searchQuery.isEmpty ||
+            task.title.toLowerCase().contains(searchQuery.toLowerCase()) ||
+            (task.description != null &&
+                task.description!
+                    .toLowerCase()
+                    .contains(searchQuery.toLowerCase()));
+        bool matchesPriority =
+            selectedPriority == 'Tous' || task.priority == selectedPriority;
+        bool matchesStatus = selectedStatus == 'Tous' ||
+            (selectedStatus == 'Complète' && task.isComplete) ||
+            (selectedStatus == 'Incomplète' && !task.isComplete);
+        return matchesSearchQuery && matchesPriority && matchesStatus;
+      }).toList();
     });
+  }
+
+  Widget _buildTaskSection(String title, List<Task> tasks) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Padding(
+          padding: const EdgeInsets.all(8.0),
+          child: Text(
+            title,
+            style: const TextStyle(
+              fontSize: 18,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+        ),
+        if (tasks.isEmpty)
+          const Padding(
+            padding: EdgeInsets.symmetric(horizontal: 8.0),
+            child: Text("Aucune tâche dans cette section."),
+          )
+        else
+          ...tasks.map(
+            (task) => Padding(
+              padding:
+                  const EdgeInsets.symmetric(horizontal: 8.0, vertical: 4.0),
+              child: Card(
+                elevation: 3,
+                child: ListTile(
+                  title: Text(task.title),
+                  subtitle:
+                      task.description != null ? Text(task.description!) : null,
+                  trailing: Wrap(
+                    spacing: 8.0,
+                    children: [
+                      IconButton(
+                        icon: const Icon(Icons.edit, color: Colors.blue),
+                        onPressed: () => _editTask(task),
+                      ),
+                      IconButton(
+                        icon: Icon(
+                          task.isComplete
+                              ? Icons.check_circle
+                              : Icons.circle_outlined,
+                          color: task.isComplete ? Colors.green : Colors.grey,
+                        ),
+                        onPressed: () => _toggleTaskStatus(task.id),
+                      ),
+                      IconButton(
+                        icon: const Icon(Icons.delete, color: Colors.red),
+                        onPressed: () => _deleteTask(task.id),
+                      ),
+                    ],
+                  ),
+                  leading: CircleAvatar(
+                    backgroundColor: task.priority == "Haute"
+                        ? Colors
+                            .red // Si la priorité est "Haute", couleur rouge
+                        : task.priority == "Moyenne"
+                            ? Colors
+                                .orange // Si la priorité est "Moyenne", couleur orange
+                            : Colors
+                                .blue, // Si la priorité est "Basse", couleur bleue
+                    child: Text(
+                      task.priority[
+                          0], // Affiche la première lettre de la priorité
+                      style: const TextStyle(
+                          color: Colors.white), // Texte en blanc pour contraste
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        const Divider(height: 1, color: Colors.grey),
+      ],
+    );
   }
 
   @override
@@ -151,7 +244,6 @@ class _HomeScreenState extends State<HomeScreen> {
       ),
       body: Column(
         children: [
-          // Barre de recherche
           Padding(
             padding: const EdgeInsets.all(8.0),
             child: TextField(
@@ -168,7 +260,6 @@ class _HomeScreenState extends State<HomeScreen> {
               },
             ),
           ),
-          // Filtrage par priorité et statut
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceAround,
             children: [
@@ -215,81 +306,46 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
         ],
       ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: () {
-          Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder: (context) => AddTaskScreen(onAddTask: _addTask),
+      floatingActionButton: Padding(
+        padding: const EdgeInsets.only(bottom: 10.0),
+        child: Stack(
+          children: [
+            // Mic button on the left
+            Positioned(
+              bottom: 0,
+              left: 30,
+              child: FloatingActionButton(
+                onPressed: _listenForTask,
+                heroTag: 'btnVoice',
+                backgroundColor: _isListening ? Colors.red : Colors.blue,
+                child: Icon(_isListening ? Icons.mic_off : Icons.mic),
+              ),
             ),
-          );
-        },
-        child: const Icon(Icons.add),
-      ),
-    );
-  }
-
-  Widget _buildTaskSection(String title, List<Task> tasks) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Padding(
-          padding: const EdgeInsets.all(8.0),
-          child: Text(
-            title,
-            style: const TextStyle(
-              fontSize: 18,
-              fontWeight: FontWeight.bold,
-            ),
-          ),
-        ),
-        if (tasks.isEmpty)
-          const Padding(
-            padding: EdgeInsets.symmetric(horizontal: 8.0),
-            child: Text("Aucune tâche dans cette section."),
-          )
-        else
-          ...tasks.map(
-            (task) => Padding(
-              padding:
-                  const EdgeInsets.symmetric(horizontal: 8.0, vertical: 4.0),
-              child: Card(
-                elevation: 3,
-                child: ListTile(
-                  title: Text(task.title),
-                  subtitle:
-                      task.description != null ? Text(task.description!) : null,
-                  trailing: Wrap(
-                    spacing: 8.0,
-                    children: [
-                      IconButton(
-                        icon: Icon(
-                          task.isComplete
-                              ? Icons.check_circle
-                              : Icons.circle_outlined,
-                          color: task.isComplete ? Colors.green : Colors.grey,
-                        ),
-                        onPressed: () => _toggleTaskStatus(task.id),
+            // Add task button on the right
+            Positioned(
+              bottom: 0,
+              right: 0,
+              child: Padding(
+                padding:
+                    const EdgeInsets.only(right: 10.0), // Adjust right padding
+                child: FloatingActionButton(
+                  onPressed: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) =>
+                            AddTaskScreen(onAddTask: _addTask),
                       ),
-                      IconButton(
-                        icon: const Icon(Icons.delete, color: Colors.red),
-                        onPressed: () => _deleteTask(task.id),
-                      ),
-                    ],
-                  ),
-                  leading: CircleAvatar(
-                    backgroundColor: task.priority == "Haute"
-                        ? Colors.red
-                        : task.priority == "Moyenne"
-                            ? Colors.orange
-                            : Colors.green,
-                    child: Text(task.priority[0]),
-                  ),
+                    );
+                  },
+                  heroTag: 'btnAdd',
+                  child: const Icon(Icons.add),
                 ),
               ),
             ),
-          ),
-      ],
+          ],
+        ),
+      ),
     );
   }
 }

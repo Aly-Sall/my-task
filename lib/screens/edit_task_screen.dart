@@ -3,12 +3,12 @@ import '../models/task.dart';
 
 class EditTaskScreen extends StatefulWidget {
   final Task task;
-  final Function(Task updatedTask) onEditTask;
+  final Function(String, String?, String, DateTime?) onEditTask;
 
   const EditTaskScreen({
+    super.key,
     required this.task,
     required this.onEditTask,
-    super.key,
   });
 
   @override
@@ -16,99 +16,169 @@ class EditTaskScreen extends StatefulWidget {
 }
 
 class _EditTaskScreenState extends State<EditTaskScreen> {
-  final _formKey = GlobalKey<FormState>();
-  late String _title;
-  String? _description;
-  late String _priority;
-  DateTime? _deadline;
+  late TextEditingController _titleController;
+  late TextEditingController _descriptionController;
+  late String _selectedPriority;
+  DateTime? _selectedDate;
 
   @override
   void initState() {
     super.initState();
-    _title = widget.task.title;
-    _description = widget.task.description;
-    _priority = widget.task.priority;
-    _deadline = widget.task.deadline;
+    _titleController = TextEditingController(text: widget.task.title);
+    _descriptionController =
+        TextEditingController(text: widget.task.description);
+    _selectedPriority =
+        ['Haute', 'Moyenne', 'Basse'].contains(widget.task.priority)
+            ? widget.task.priority
+            : 'Moyenne';
+    _selectedDate = widget.task.deadline;
+  }
+
+  @override
+  void dispose() {
+    _titleController.dispose();
+    _descriptionController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _selectDate(BuildContext context) async {
+    final DateTime? picked = await showDatePicker(
+      context: context,
+      initialDate: _selectedDate ?? DateTime.now(),
+      firstDate: DateTime.now(),
+      lastDate: DateTime(2100),
+    );
+
+    if (picked != null) {
+      final TimeOfDay? pickedTime = await showTimePicker(
+        context: context,
+        initialTime: TimeOfDay.fromDateTime(_selectedDate ?? DateTime.now()),
+      );
+
+      if (pickedTime != null) {
+        setState(() {
+          _selectedDate = DateTime(
+            picked.year,
+            picked.month,
+            picked.day,
+            pickedTime.hour,
+            pickedTime.minute,
+          );
+        });
+      }
+    }
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Modifier une tâche'),
+        title: const Text('Modifier la tâche'),
+        centerTitle: true,
       ),
-      body: Padding(
+      body: SingleChildScrollView(
         padding: const EdgeInsets.all(16.0),
-        child: Form(
-          key: _formKey,
-          child: Column(
-            children: [
-              TextFormField(
-                initialValue: _title,
-                decoration: const InputDecoration(labelText: 'Titre'),
-                validator: (value) {
-                  if (value == null || value.isEmpty) {
-                    return 'Veuillez entrer un titre.';
-                  }
-                  return null;
-                },
-                onSaved: (value) {
-                  _title = value!;
-                },
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            // Champ pour le titre
+            TextField(
+              controller: _titleController,
+              decoration: const InputDecoration(
+                labelText: 'Titre',
+                border: OutlineInputBorder(),
               ),
-              TextFormField(
-                initialValue: _description,
-                decoration: const InputDecoration(labelText: 'Description'),
-                onSaved: (value) {
-                  _description = value;
-                },
+            ),
+            const SizedBox(height: 16.0),
+
+            // Champ pour la description
+            TextField(
+              controller: _descriptionController,
+              decoration: const InputDecoration(
+                labelText: 'Description (optionnelle)',
+                border: OutlineInputBorder(),
               ),
-              DropdownButtonFormField<String>(
-                value: _priority,
-                items: ['basse', 'moyenne', 'haute']
-                    .map((priority) => DropdownMenuItem(
-                          value: priority,
-                          child: Text(priority),
-                        ))
-                    .toList(),
-                decoration: const InputDecoration(labelText: 'Priorité'),
-                onChanged: (value) {
-                  setState(() {
-                    _priority = value!;
-                  });
-                },
+              maxLines: 3,
+            ),
+            const SizedBox(height: 16.0),
+
+            // Liste déroulante pour la priorité
+            DropdownButtonFormField<String>(
+              value: _selectedPriority,
+              decoration: const InputDecoration(
+                labelText: 'Priorité',
+                border: OutlineInputBorder(),
               ),
-              TextFormField(
-                initialValue: _deadline != null
-                    ? _deadline!.toIso8601String().split('T')[0]
-                    : '',
-                decoration: const InputDecoration(
-                    labelText: 'Date limite (YYYY-MM-DD)'),
-                onSaved: (value) {
-                  if (value != null && value.isNotEmpty) {
-                    _deadline = DateTime.tryParse(value);
-                  }
-                },
+              items: ['Haute', 'Moyenne', 'Basse']
+                  .map((priority) => DropdownMenuItem(
+                        value: priority,
+                        child: Text(priority),
+                      ))
+                  .toList(),
+              onChanged: (value) {
+                setState(() {
+                  _selectedPriority = value!;
+                });
+              },
+              // Ajoutez ce paramètre pour gérer le cas où la valeur initiale n'existe pas dans la liste
+              validator: (value) {
+                if (value == null ||
+                    !['Haute', 'Moyenne', 'Basse'].contains(value)) {
+                  return 'Sélectionnez une priorité valide';
+                }
+                return null;
+              },
+            ),
+            const SizedBox(height: 16.0),
+
+            // Sélection de la date limite
+            ListTile(
+              title: const Text('Date limite'),
+              subtitle: Text(
+                _selectedDate != null
+                    ? '${_selectedDate!.day}/${_selectedDate!.month}/${_selectedDate!.year} à ${_selectedDate!.hour}:${_selectedDate!.minute}'
+                    : 'Aucune date sélectionnée',
               ),
-              const SizedBox(height: 20),
-              ElevatedButton(
-                onPressed: () {
-                  if (_formKey.currentState!.validate()) {
-                    _formKey.currentState!.save();
-                    widget.task.update(
-                      title: _title,
-                      description: _description,
-                      priority: _priority,
-                      deadline: _deadline,
-                    );
-                    widget.onEditTask(widget.task);
-                    Navigator.pop(context);
-                  }
-                },
-                child: const Text('Enregistrer'),
+              trailing: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  IconButton(
+                    icon: const Icon(Icons.calendar_today),
+                    onPressed: () => _selectDate(context),
+                  ),
+                  if (_selectedDate != null)
+                    IconButton(
+                      icon: const Icon(Icons.clear),
+                      onPressed: () {
+                        setState(() {
+                          _selectedDate = null;
+                        });
+                      },
+                    ),
+                ],
               ),
-            ],
-          ),
+            ),
+            const SizedBox(height: 32.0),
+
+            // Bouton de sauvegarde
+            ElevatedButton(
+              onPressed: () {
+                widget.onEditTask(
+                  _titleController.text,
+                  _descriptionController.text.isEmpty
+                      ? null
+                      : _descriptionController.text,
+                  _selectedPriority,
+                  _selectedDate,
+                );
+                Navigator.pop(context);
+              },
+              child: const Padding(
+                padding: EdgeInsets.all(16.0),
+                child: Text('Modifier la tâche'),
+              ),
+            ),
+          ],
         ),
       ),
     );
