@@ -1,7 +1,7 @@
 # Task Manager Flutter App
 
 ## 📝 Description
-My-Task is a mobile application built with **Flutter** that allows users to manage their tasks efficiently. The app offers features like:
+My-Task is an android application built with **Flutter** that allows users to manage their tasks efficiently. The app offers features like:
 - Create, edit and delete tasks.
 - Prioritize tasks (low, medium, high).
 - Local notifications to remind tasks before their deadline.
@@ -33,14 +33,20 @@ My-Task is a mobile application built with **Flutter** that allows users to mana
 
 
 
+### Dark mode & Search filter
+<img width="518" alt="Screenshot 1403-10-16 at 21 06 51" src="https://github.com/user-attachments/assets/f330851d-8c80-47ed-b713-4ff8e11f80b0" />
+
 ---
 
 ## 🛠️ Installation and Setup
 ### Prerequisites
 - **Flutter** installed on your machine. [Flutter Installation](https://docs.flutter.dev/get-started/install).
-- An Android or iOS emulator, or a connected physical device.
+- An Android emulator, or a connected physical device.
 
 ### Steps to Run the Project
 1. Clone this repository:
 ```bash
-git clone https://github.com/username/task-manager-flutter.git
+git clone https://github.com/Aly-Sall/my-task.git
+
+2.flutter pub get
+3.flutter run
