@@ -16,6 +16,18 @@ class HomeScreen extends StatefulWidget {
 }
 
 class _HomeScreenState extends State<HomeScreen> {
+  Color _getPriorityColor(String priority) {
+    final isDarkMode = Theme.of(context).brightness == Brightness.dark;
+    switch (priority) {
+      case "Haute":
+        return isDarkMode ? Colors.red.shade300 : Colors.red;
+      case "Moyenne":
+        return isDarkMode ? Colors.orange.shade300 : Colors.orange;
+      default:
+        return isDarkMode ? Colors.blue.shade300 : Colors.blue;
+    }
+  }
+
   List<Task> tasks = [];
   bool showCompletedTasks = true;
   String searchQuery = '';
@@ -125,6 +137,13 @@ class _HomeScreenState extends State<HomeScreen> {
     _loadTasks();
   }
 
+  void _resetTask(int id) {
+    setState(() {
+      final task = tasks.firstWhere((task) => task.id == id);
+      task.isComplete = false;
+    });
+  }
+
   void _filterTasks() {
     final query = searchQuery.trim().toLowerCase();
 
@@ -153,18 +172,6 @@ class _HomeScreenState extends State<HomeScreen> {
       selectedStatus = 'Tous';
     });
     _loadTasks();
-  }
-
-  Color _getPriorityColor(String priority) {
-    final isDarkMode = Theme.of(context).brightness == Brightness.dark;
-    switch (priority) {
-      case "Haute":
-        return isDarkMode ? Colors.red.shade700 : Colors.red;
-      case "Moyenne":
-        return isDarkMode ? Colors.orange.shade700 : Colors.orange;
-      default:
-        return isDarkMode ? Colors.blue.shade700 : Colors.blue;
-    }
   }
 
   Widget _buildTaskSection(String title, List<Task> tasks) {
@@ -297,7 +304,10 @@ class _HomeScreenState extends State<HomeScreen> {
                         IconButton(
                           icon: Icon(
                             Icons.edit,
-                            color: Theme.of(context).primaryColor,
+                            color:
+                                Theme.of(context).brightness == Brightness.dark
+                                    ? Colors.blue
+                                    : Theme.of(context).primaryColor,
                           ),
                           onPressed: () => _editTask(task),
                         ),
@@ -307,7 +317,8 @@ class _HomeScreenState extends State<HomeScreen> {
                                 ? Icons.check_circle
                                 : Icons.circle_outlined,
                             color: task.isComplete
-                                ? (isDarkMode
+                                ? (Theme.of(context).brightness ==
+                                        Brightness.dark
                                     ? Colors.green.shade400
                                     : Colors.green)
                                 : Theme.of(context).disabledColor,
@@ -318,9 +329,21 @@ class _HomeScreenState extends State<HomeScreen> {
                           icon: Icon(
                             Icons.delete,
                             color:
-                                isDarkMode ? Colors.red.shade400 : Colors.red,
+                                Theme.of(context).brightness == Brightness.dark
+                                    ? Colors.red.shade400
+                                    : Colors.red,
                           ),
                           onPressed: () => _deleteTask(task.id),
+                        ),
+                        IconButton(
+                          icon: Icon(
+                            Icons.refresh,
+                            color:
+                                Theme.of(context).brightness == Brightness.dark
+                                    ? Colors.blue
+                                    : Theme.of(context).primaryColor,
+                          ),
+                          onPressed: () => _resetTask(task.id),
                         ),
                       ],
                     ),
@@ -407,7 +430,9 @@ class _HomeScreenState extends State<HomeScreen> {
                   IconButton(
                     icon: Icon(
                       Icons.refresh,
-                      color: Theme.of(context).primaryColor,
+                      color: Theme.of(context).brightness == Brightness.dark
+                          ? Colors.blue
+                          : Theme.of(context).primaryColor,
                     ),
                     onPressed: _resetFilters,
                   ),
@@ -469,53 +494,43 @@ class _HomeScreenState extends State<HomeScreen> {
           ],
         ),
       ),
+      floatingActionButtonLocation: FloatingActionButtonLocation.centerDocked,
       floatingActionButton: Padding(
-        padding: const EdgeInsets.only(bottom: 10.0),
-        child: Stack(
+        padding: const EdgeInsets.symmetric(horizontal: 16.0),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            Positioned(
-              bottom: 0,
-              left: 30,
-              child: FloatingActionButton(
-                onPressed: _listenForTask,
-                heroTag: 'btnVoice',
-                backgroundColor: _isListening
-                    ? (Theme.of(context).brightness == Brightness.dark
-                        ? Colors.red.shade700
-                        : Colors.red)
-                    : Theme.of(context).primaryColor,
-                child: Icon(
-                  _isListening ? Icons.mic_off : Icons.mic,
-                  color: Theme.of(context).brightness == Brightness.dark
-                      ? Colors.white
-                      : Colors.white,
-                ),
+            FloatingActionButton(
+              onPressed: _listenForTask,
+              heroTag: 'btnVoice',
+              backgroundColor: _isListening
+                  ? (Theme.of(context).brightness == Brightness.dark
+                      ? Colors.red.shade300
+                      : Colors.red)
+                  : Theme.of(context).primaryColor,
+              child: Icon(
+                _isListening ? Icons.mic_off : Icons.mic,
+                color: Theme.of(context).brightness == Brightness.dark
+                    ? Colors.blue
+                    : Colors.white,
               ),
             ),
-            Positioned(
-              bottom: 0,
-              right: 0,
-              child: Padding(
-                padding: const EdgeInsets.only(right: 10.0),
-                child: FloatingActionButton(
-                  onPressed: () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (context) =>
-                            AddTaskScreen(onAddTask: _addTask),
-                      ),
-                    );
-                  },
-                  heroTag: 'btnAdd',
-                  backgroundColor: Theme.of(context).primaryColor,
-                  child: Icon(
-                    Icons.add,
-                    color: Theme.of(context).brightness == Brightness.dark
-                        ? Colors.white
-                        : Colors.white,
+            FloatingActionButton(
+              onPressed: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => AddTaskScreen(onAddTask: _addTask),
                   ),
-                ),
+                );
+              },
+              heroTag: 'btnAdd',
+              backgroundColor: Theme.of(context).primaryColor,
+              child: Icon(
+                Icons.add,
+                color: Theme.of(context).brightness == Brightness.dark
+                    ? Colors.blue
+                    : Colors.white,
               ),
             ),
           ],
