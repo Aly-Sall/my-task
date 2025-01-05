@@ -15,6 +15,7 @@ My-Task is a mobile application built with **Flutter** that allows users to mana
 - **Local reminders**: Get notifications for tasks as they approach their deadline.
 - **Delete Tasks**: Delete completed or unnecessary tasks.
 - **Voice Commands**: Add tasks using voice recognition.
+- **Dark mode && Search filter
 
 ---
 
@@ -23,11 +24,14 @@ My-Task is a mobile application built with **Flutter** that allows users to mana
 <img width="582" alt="Screenshot 1403-10-16 at 20 13 06" src="https://github.com/user-attachments/assets/4b06d1b6-11ac-4c69-9e51-e796b49170e5" />
 
 
-### Add Task
-![Add Task Screen](https://via.placeholder.com/400x800)
 
-### Reminder Notification
-![Notification](https://via.placeholder.com/400x800)
+
+### Add Task & Modify Task
+<img width="544" alt="Screenshot 1403-10-16 at 20 13 49" src="https://github.com/user-attachments/assets/f3e325f0-8b34-4488-9e6d-edc9568d4600" />
+
+<img width="502" alt="Screenshot 1403-10-16 at 21 34 55" src="https://github.com/user-attachments/assets/1c00ee23-d4bd-4ded-8f48-145daacc2209" />
+
+
 
 ---
 
