@@ -17,6 +17,34 @@ class _AddTaskScreenState extends State<AddTaskScreen> {
   String _priority = 'basse';
   DateTime? _deadline;
 
+  Future<void> _selectDate(BuildContext context) async {
+    final DateTime? pickedDate = await showDatePicker(
+      context: context,
+      initialDate: _deadline ?? DateTime.now(),
+      firstDate: DateTime.now(),
+      lastDate: DateTime(2100),
+    );
+
+    if (pickedDate != null) {
+      final TimeOfDay? pickedTime = await showTimePicker(
+        context: context,
+        initialTime: TimeOfDay.fromDateTime(_deadline ?? DateTime.now()),
+      );
+
+      if (pickedTime != null) {
+        setState(() {
+          _deadline = DateTime(
+            pickedDate.year,
+            pickedDate.month,
+            pickedDate.day,
+            pickedTime.hour,
+            pickedTime.minute,
+          );
+        });
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -63,17 +91,31 @@ class _AddTaskScreenState extends State<AddTaskScreen> {
                   });
                 },
               ),
-              TextFormField(
-                decoration: const InputDecoration(
-                  labelText: 'Date limite (facultatif)',
-                  hintText: 'YYYY-MM-DD',
+              ListTile(
+                title: const Text('Date limite'),
+                subtitle: Text(
+                  _deadline != null
+                      ? '${_deadline!.day}/${_deadline!.month}/${_deadline!.year} à ${_deadline!.hour}:${_deadline!.minute}'
+                      : 'Aucune date sélectionnée',
                 ),
-                keyboardType: TextInputType.datetime,
-                onSaved: (value) {
-                  if (value != null && value.isNotEmpty) {
-                    _deadline = DateTime.tryParse(value);
-                  }
-                },
+                trailing: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    IconButton(
+                      icon: const Icon(Icons.calendar_today),
+                      onPressed: () => _selectDate(context),
+                    ),
+                    if (_deadline != null)
+                      IconButton(
+                        icon: const Icon(Icons.clear),
+                        onPressed: () {
+                          setState(() {
+                            _deadline = null;
+                          });
+                        },
+                      ),
+                  ],
+                ),
               ),
               const SizedBox(height: 20),
               ElevatedButton(
