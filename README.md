@@ -1,4 +1,4 @@
-# Task Manager Flutter App
+# My-Task App
 
 ## 📝 Description
 My-Task is an android application built with **Flutter** that allows users to manage their tasks efficiently. The app offers features like:
